@@ -4,44 +4,131 @@ package main
 import (
     "os"
     "log"
+    "fmt"
     "flag"
+    "strconv"
+    "syscall"
     "launchpad.net/goyaml"
 )
 
 
 func init() {
-    idx = flag.String("idx", "", "Platform id for test, will push into amqp")
-    action = flag.Bool("", false, "show current version")
+    flag.Parse()
 }
 
 func main() {
-    apps := make(map[string]*App)
-    if e := LoadYaml(apps, "foods.yml"); e != nil {
-        log.Fatal(e)
+    args := flag.Args()
+    if len(args) < 2 {
+        log.Fatal("not enough params")
     }
 
-
-    pa := &os.ProcAttr {
-        Dir: root,
-        Files: []*os.File{os.Stdin, os.Stdout, os.Stderr},
+    var app *App
+    var name string
+    for name, app = range apps() {
+        if name == args[1] {
+            app.Name = name
+            break
+        }
     }
 
-    p, e := os.StartProcess("notes", nil, pa)
+    if app == nil {
+        log.Fatal("no app named", args[1])
+    }
 
-    log.Println(p, e)
+    var pid int
+    if b, e := loadFile(app.Pid); e == nil {
+        if i, e := strconv.ParseInt(string(b), 10, 0); e == nil {
+            pid = int(i)
+        }
+    }
+
+    var action = args[0]
+    if (action == "rt" || action == "restart") {
+        if pid == 0 {
+            log.Fatal("process is not running")
+        }
+
+        if e := syscall.Kill(pid, syscall.SIGKILL); e == nil {
+            fmt.Println("old process killed: ", pid)
+            run(app)
+        } else {
+            log.Fatal("can not kill old process", e)
+        }
+
+    } else if action == "start" {
+        if pid > 0 {
+            log.Fatal("app is allready running")
+        }
+
+        run(app)
+    } else if action == "stop" {
+        if pid == 0 {
+            log.Fatal("app is allready stopped")
+        }
+
+        file,_ := os.OpenFile(app.Pid, os.O_CREATE | os.O_TRUNC | os.O_WRONLY, 0666)
+        defer file.Close()
+
+        if e := syscall.Kill(pid, syscall.SIGKILL); e == nil {
+            fmt.Println("old process killed: ", pid)
+        } else {
+            log.Fatal(e)
+        }
+
+    } else {
+        log.Fatal("la la la")
+    }
 }
 
 
+func run(app *App) {
+    file, e := os.Open(os.DevNull)
+    if e != nil {
+        log.Fatal("can not open /dev/null", e)
+    }
+
+    pa := &os.ProcAttr {
+        Dir: app.Dir,
+        //Files: []*os.File{file, file, file},
+    }
+
+    p, e := os.StartProcess(app.Name, nil, pa)
+    if e != nil {
+        log.Fatal("start app error ", e)
+    }
+
+    file, e = os.OpenFile(app.Pid,
+        os.O_CREATE | os.O_TRUNC | os.O_WRONLY, 0666)
+    if e != nil {
+        log.Fatal(app.Pid, "file can not open")
+    }
+    defer file.Close()
+
+    if _,e := file.Write([]byte(fmt.Sprintf("%d", p.Pid))); e != nil {
+        log.Fatal(app.Pid, "file can not save")
+    }
+
+    fmt.Println("new process running on pid: ", p.Pid)
+}
 
 
 type App struct {
     Name string
-    Bin string `yaml:"bin"`
+    Dir string `yaml:"dir"`
     Pid string `yaml:"pid"`
 }
 
-func LoadYaml(v interface{}, filename string) error {
-    text, e := LoadFile(filename)
+func apps() map[string]*App {
+    apps := make(map[string]*App)
+    if e := loadYaml(apps, "config.yml"); e != nil {
+        log.Fatal(e)
+    }
+
+    return apps
+}
+
+func loadYaml(v interface{}, filename string) error {
+    text, e := loadFile(filename)
     if e != nil {
         return e
     }
@@ -49,7 +136,7 @@ func LoadYaml(v interface{}, filename string) error {
     return goyaml.Unmarshal(text, v)
 }
 
-func LoadFile(filename string) ([]byte, error) {
+func loadFile(filename string) ([]byte, error) {
     file, e := os.Open(filename)
     if e != nil {
         return nil, e

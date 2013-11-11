@@ -1,0 +1,4 @@
+notes:
+    dir: /project/go/src/github.com/roydong/notes
+    pid: /var/run/notes.pid
+
