@@ -1,0 +1,6 @@
+
+
+notes
+    bin: /project/go/src/github.com/roydong/notes/notes
+    pid: /var/run/notes.pid
+
