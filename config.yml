@@ -1,4 +1,5 @@
 notes:
+    cmd: /project/go/bin/notes
     dir: /project/go/src/github.com/roydong/notes
     pid: /var/run/notes.pid
 

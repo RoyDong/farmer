@@ -25,10 +25,7 @@ func main() {
     var app *App
     var name string
     for name, app = range apps() {
-        if name == args[1] {
-            app.Name = name
-            break
-        }
+        if name == args[1] { break }
     }
 
     if app == nil {
@@ -82,7 +79,7 @@ func main() {
 
 
 func run(app *App) {
-    p, e := os.StartProcess(app.Name, nil, &os.ProcAttr {Dir: app.Dir})
+    p, e := os.StartProcess(app.Cmd, nil, &os.ProcAttr {Dir: app.Dir})
     if e != nil {
         log.Fatal("start app error ", e)
     }
@@ -104,6 +101,7 @@ func run(app *App) {
 
 type App struct {
     Name string
+    Cmd string `yaml:"cmd"`
     Dir string `yaml:"dir"`
     Pid string `yaml:"pid"`
 }
