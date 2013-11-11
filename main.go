@@ -82,22 +82,12 @@ func main() {
 
 
 func run(app *App) {
-    file, e := os.Open(os.DevNull)
-    if e != nil {
-        log.Fatal("can not open /dev/null", e)
-    }
-
-    pa := &os.ProcAttr {
-        Dir: app.Dir,
-        //Files: []*os.File{file, file, file},
-    }
-
-    p, e := os.StartProcess(app.Name, nil, pa)
+    p, e := os.StartProcess(app.Name, nil, &os.ProcAttr {Dir: app.Dir})
     if e != nil {
         log.Fatal("start app error ", e)
     }
 
-    file, e = os.OpenFile(app.Pid,
+    file, e := os.OpenFile(app.Pid,
         os.O_CREATE | os.O_TRUNC | os.O_WRONLY, 0666)
     if e != nil {
         log.Fatal(app.Pid, "file can not open")
