@@ -36,6 +36,10 @@ func main() {
     if b, e := loadFile(app.Pid); e == nil {
         if i, e := strconv.ParseInt(string(b), 10, 0); e == nil {
             pid = int(i)
+
+            if _,e := os.FindProcess(pid); e != nil {
+                pid = 0
+            }
         }
     }
 
