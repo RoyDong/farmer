@@ -46,16 +46,14 @@ func main() {
     var action = args[0]
     if (action == "rt" || action == "restart") {
         if pid == 0 {
-            log.Fatal("process is not running")
-        }
-
-        if e := syscall.Kill(pid, syscall.SIGKILL); e == nil {
+            log.Println("process is not running")
+        } else if e := syscall.Kill(pid, syscall.SIGKILL); e == nil {
             fmt.Println("old process killed: ", pid)
-            run(app)
         } else {
             log.Fatal("can not kill old process", e)
         }
 
+        run(app)
     } else if action == "start" {
         if pid > 0 {
             log.Fatal("app is allready running")
