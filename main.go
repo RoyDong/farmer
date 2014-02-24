@@ -3,142 +3,62 @@ package main
 
 import (
     "os"
-    "log"
+    "os/exec"
     "fmt"
-    "flag"
-    "strconv"
-    "syscall"
-    "launchpad.net/goyaml"
 )
 
 
-func init() {
-    flag.Parse()
-}
+const (
+    DirPerm = 0755
+    LogPerm = 0655
+)
 
 func main() {
-    args := flag.Args()
-    if len(args) < 2 {
-        log.Fatal("not enough params")
+    if len(os.Args) < 3 {
+        println("do nothing")
+        return
     }
 
-    var app *App
-    var name string
-    for name, app = range apps() {
-        if name == args[1] { break }
-    }
-
-    if app == nil {
-        log.Fatal("no app named", args[1])
-    }
-
-    var pid int
-    if b, e := loadFile(app.Pid); e == nil {
-        if i, e := strconv.ParseInt(string(b), 10, 0); e == nil {
-            pid = int(i)
-
-            if _,e := os.FindProcess(pid); e != nil {
-                pid = 0
-            }
+    var e error
+    action := os.Args[1]
+    name := os.Args[2]
+    if action == "start" {
+        cmd := exec.Command(name, os.Args[1:]...)
+        if cmd.Stdout, e = createLogfile(name, "main"); e != nil {
+            println(e)
         }
-    }
-
-    var action = args[0]
-    if (action == "rt" || action == "restart") {
-        if pid == 0 {
-            log.Println("process is not running")
-        } else if e := syscall.Kill(pid, syscall.SIGKILL); e == nil {
-            fmt.Println("old process killed: ", pid)
-        } else {
-            log.Fatal("can not kill old process", e)
+        if cmd.Stderr, e = createLogfile(name, "error"); e != nil {
+            println(e)
         }
-
-        run(app)
-    } else if action == "start" {
-        if pid > 0 {
-            log.Fatal("app is allready running")
-        }
-
-        run(app)
+        e = cmd.Start()
     } else if action == "stop" {
-        if pid == 0 {
-            log.Fatal("app is allready stopped")
-        }
-
-        file,_ := os.OpenFile(app.Pid, os.O_CREATE | os.O_TRUNC | os.O_WRONLY, 0666)
-        defer file.Close()
-
-        if e := syscall.Kill(pid, syscall.SIGKILL); e == nil {
-            fmt.Println("old process killed: ", pid)
-        } else {
-            log.Fatal(e)
-        }
-
+        cmd := exec.Command("killall", name)
+        e = cmd.Run()
+    } else if action == "restart" {
+        println("you fucking lazy, run stop then start")
+        return
     } else {
-        log.Fatal("la la la")
+        println("do nothing")
+        return
     }
-}
 
-
-func run(app *App) {
-    p, e := os.StartProcess(app.Cmd, nil, &os.ProcAttr {Dir: app.Dir})
     if e != nil {
-        log.Fatal("start app error ", e)
+        println("error: " + e.Error())
+    } else {
+        println("done")
     }
-
-    file, e := os.OpenFile(app.Pid,
-        os.O_CREATE | os.O_TRUNC | os.O_WRONLY, 0666)
-    if e != nil {
-        log.Fatal(app.Pid, "file can not open")
-    }
-    defer file.Close()
-
-    if _,e := file.Write([]byte(fmt.Sprintf("%d", p.Pid))); e != nil {
-        log.Fatal(app.Pid, "file can not save")
-    }
-
-    fmt.Println("new process running on pid: ", p.Pid)
 }
 
-
-type App struct {
-    Name string
-    Cmd string `yaml:"cmd"`
-    Dir string `yaml:"dir"`
-    Pid string `yaml:"pid"`
-}
-
-func apps() map[string]*App {
-    apps := make(map[string]*App)
-    if e := loadYaml(apps, "config.yml"); e != nil {
-        log.Fatal(e)
-    }
-
-    return apps
-}
-
-func loadYaml(v interface{}, filename string) error {
-    text, e := loadFile(filename)
-    if e != nil {
-        return e
-    }
-
-    return goyaml.Unmarshal(text, v)
-}
-
-func loadFile(filename string) ([]byte, error) {
-    file, e := os.Open(filename)
+func createLogfile(n, t string) (*os.File, error) {
+    var f *os.File
+    var e error
+    e = os.MkdirAll("/var/log/" + n, DirPerm)
     if e != nil {
         return nil, e
     }
-    defer file.Close()
-
-    fileInfo, e := file.Stat()
+    f, e = os.OpenFile(fmt.Sprintf("/var/log/%s/%s.log", n, t), os.O_CREATE|os.O_WRONLY|os.O_APPEND, LogPerm)
     if e != nil {
         return nil, e
     }
-
-    text := make([]byte, fileInfo.Size())
-    file.Read(text)
-    return text, nil
+    return f, nil
 }
