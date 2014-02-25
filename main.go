@@ -10,12 +10,12 @@ import (
 
 const (
     DirPerm = 0755
-    LogPerm = 0655
+    LogPerm = 0644
 )
 
 func main() {
     if len(os.Args) < 3 {
-        println("do nothing")
+        fmt.Println("do nothing")
         return
     }
 
@@ -23,29 +23,29 @@ func main() {
     action := os.Args[1]
     name := os.Args[2]
     if action == "start" {
-        cmd := exec.Command(name, os.Args[1:]...)
-        if cmd.Stdout, e = createLogfile(name, "main"); e != nil {
-            println(e)
+        cmd := exec.Command(name, os.Args[3:]...)
+        if cmd.Stdout, e = createLogfile(name, "stdout"); e != nil {
+            println("main log " + e.Error())
         }
-        if cmd.Stderr, e = createLogfile(name, "error"); e != nil {
-            println(e)
+        if cmd.Stderr, e = createLogfile(name, "stderr"); e != nil {
+            println("error log " + e.Error())
         }
         e = cmd.Start()
     } else if action == "stop" {
         cmd := exec.Command("killall", name)
         e = cmd.Run()
     } else if action == "restart" {
-        println("you fucking lazy, run stop then start")
+        println("run stop then start")
         return
     } else {
-        println("do nothing")
+        fmt.Println("do nothing")
         return
     }
 
     if e != nil {
         println("error: " + e.Error())
     } else {
-        println("done")
+        fmt.Println("done")
     }
 }
 
